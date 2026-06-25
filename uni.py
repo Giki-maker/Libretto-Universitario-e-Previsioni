@@ -54,14 +54,14 @@ st.markdown("""
     .block-container {
         padding-left: 1rem !important;
         padding-right: 1rem !important;
-        padding-top: 1.5rem !important;
+        padding-top: 3rem !important;
         max-width: 100% !important;
     }
     @media (max-width: 768px) {
         .block-container {
             padding-left: 0.6rem !important;
             padding-right: 0.6rem !important;
-            padding-top: 1rem !important;
+            padding-top: 3.5rem !important;
         }
     }
 
@@ -724,6 +724,7 @@ with tab_libretto:
         st.info("💡 **Modifica:** doppio clic sulla cella. **Elimina:** spunta l'ultima colonna, poi clicca Aggiorna.")
 
         df_edit_view = df_corso[["Esame", "Voto", "CFU", "Lode", "Tipo"]].copy().reset_index(drop=True)
+        df_edit_view["Lode"] = df_edit_view["Lode"].apply(lambda x: "Lode" if str(x).strip().lower() in ["true","1","lode"] else "")
         df_edit_view.insert(0, "#", range(1, len(df_edit_view) + 1))
         df_edit_view["🗑️"] = False
 
@@ -732,12 +733,14 @@ with tab_libretto:
             hide_index=True, disabled=["Lode", "#"],
             column_config={
                 "#": st.column_config.NumberColumn("#", help="Numero progressivo", width="small", format="%d"),
+                "Lode": st.column_config.TextColumn("Lode", width="small"),
                 "🗑️": st.column_config.CheckboxColumn("🗑️ Elimina", help="Seleziona per eliminare", default=False, width="small")
             }, key="editor_reale"
         )
 
         if st.button("Aggiorna Libretto"):
             df_da_salvare = df_editato[df_editato["🗑️"] == False].drop(columns=["🗑️", "#"])
+            df_da_salvare["Lode"] = df_da_salvare["Lode"].apply(lambda x: True if x == "Lode" else False)
             df_restante = df_totale[df_totale["Percorso"] != st.session_state.percorso_attivo]
             df_da_salvare["Percorso"] = st.session_state.percorso_attivo
             st.session_state.df_esami = pd.concat([df_restante, df_da_salvare], ignore_index=True)
@@ -779,13 +782,14 @@ with tab_statistiche:
         percentuale = (cfu_acquisiti_totali / cfu_totali_corso) * 100 if cfu_totali_corso > 0 else 0
         st.markdown(f"<p style='font-family:Space Mono,monospace;font-size:2rem;font-weight:700;color:#00fa9a !important;-webkit-text-fill-color:#00fa9a !important;margin:0;'>{percentuale:.1f}%</p><p style='font-size:0.78rem;color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;text-transform:uppercase;letter-spacing:0.08em;margin-top:0;'>completato</p>", unsafe_allow_html=True)
         df_pie = pd.DataFrame({"Stato": ["Conseguiti", "Da Conseguire"], "CFU": [cfu_acquisiti_totali, cfu_mancanti]})
-        pie_chart = alt.Chart(df_pie).mark_arc(innerRadius=55, outerRadius=100).encode(
+        pie_chart = alt.Chart(df_pie).mark_arc(innerRadius=55, outerRadius=95).encode(
             theta=alt.Theta(field="CFU", type="quantitative"),
             color=alt.Color(field="Stato", type="nominal",
                 scale=alt.Scale(domain=["Conseguiti", "Da Conseguire"], range=["#00fa9a", "#0f3530"]),
-                legend=alt.Legend(labelColor="#7ecdc6", titleColor="#4a9990", orient="bottom")),
+                legend=alt.Legend(labelColor="#7ecdc6", titleColor="#4a9990", orient="bottom",
+                                  padding=10, offset=10)),
             tooltip=["Stato", "CFU"]
-        ).properties(height=240, background="transparent")
+        ).properties(height=280, padding={"top": 20, "bottom": 10, "left": 10, "right": 10}, background="transparent")
         st.altair_chart(pie_chart, use_container_width=True)
 
         # Grafico andamento — verticale, a piena larghezza
@@ -879,6 +883,7 @@ with tab_simulatore:
 
     if not st.session_state.df_simulato.empty:
         df_sim_view = st.session_state.df_simulato[["Esame", "Voto", "CFU", "Lode", "Tipo"]].copy().reset_index(drop=True)
+        df_sim_view["Lode"] = df_sim_view["Lode"].apply(lambda x: "Lode" if str(x).strip().lower() in ["true","1","lode"] else "")
         df_sim_view.insert(0, "#", range(1, len(df_sim_view) + 1))
         df_sim_view["🗑️"] = False
 
@@ -887,6 +892,7 @@ with tab_simulatore:
             hide_index=True, disabled=["Lode", "#"],
             column_config={
                 "#": st.column_config.NumberColumn("#", help="Numero progressivo", width="small", format="%d"),
+                "Lode": st.column_config.TextColumn("Lode", width="small"),
                 "🗑️": st.column_config.CheckboxColumn("🗑️ Elimina", help="Seleziona per eliminare", default=False, width="small")
             }, key="editor_simulato"
         )
