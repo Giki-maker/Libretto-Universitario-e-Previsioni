@@ -14,7 +14,7 @@ from google.oauth2.service_account import Credentials
 # ══════════════════════════════════════════════════════
 # 1. CONFIGURAZIONE PAGINA
 # ══════════════════════════════════════════════════════
-st.set_page_config(page_title="Hub Carriera Universitaria", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Hub Carriera Universitaria", page_icon="🎓", layout="centered")
 
 # Notifiche toast
 if 'toast_msg' in st.session_state and st.session_state.toast_msg:
@@ -29,6 +29,7 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
+    /* ── Base ── */
     html, body, [class*="css"] { font-family: 'Space Grotesk', sans-serif; }
     .stApp {
         background-color: #050a0a;
@@ -37,71 +38,224 @@ st.markdown("""
             radial-gradient(ellipse 60% 40% at 80% 110%, rgba(0,250,154,0.05) 0%, transparent 55%);
         color: #a8d8d0;
     }
+
+    /* ── Tipografia ── */
     h1, h2, h3, h4, h5, h6, p, span, div, label, li, .stMarkdown { color: #c8eae4 !important; }
     h1 {
-        font-size: 2.4rem !important; font-weight: 700 !important; letter-spacing: -0.03em !important;
+        font-size: clamp(1.5rem, 5vw, 2.4rem) !important;
+        font-weight: 700 !important; letter-spacing: -0.03em !important;
         background: linear-gradient(135deg, #00fa9a 0%, #20b2aa 60%, #008b7d 100%);
         -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
         background-clip: text !important; padding-bottom: 0.2rem;
     }
     h2, h3 { font-weight: 600 !important; letter-spacing: -0.02em !important; color: #7ecdc6 !important; -webkit-text-fill-color: #7ecdc6 !important; }
-    [data-testid="stMetricValue"] { font-family: 'Space Mono', monospace !important; font-size: 1.7rem !important; font-weight: 700 !important; color: #00fa9a !important; -webkit-text-fill-color: #00fa9a !important; }
-    [data-testid="stMetricLabel"] { font-size: 0.75rem !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; color: #4a9990 !important; -webkit-text-fill-color: #4a9990 !important; }
+
+    /* ── Layout principale — riduce padding su mobile ── */
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 1.5rem !important;
+        max-width: 100% !important;
+    }
+    @media (max-width: 768px) {
+        .block-container {
+            padding-left: 0.6rem !important;
+            padding-right: 0.6rem !important;
+            padding-top: 1rem !important;
+        }
+    }
+
+    /* ── Metriche ── */
+    [data-testid="stMetricValue"] {
+        font-family: 'Space Mono', monospace !important;
+        font-size: clamp(1.1rem, 4vw, 1.7rem) !important;
+        font-weight: 700 !important; color: #00fa9a !important; -webkit-text-fill-color: #00fa9a !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: clamp(0.6rem, 2vw, 0.75rem) !important;
+        letter-spacing: 0.06em !important; text-transform: uppercase !important;
+        color: #4a9990 !important; -webkit-text-fill-color: #4a9990 !important;
+    }
     [data-testid="stMetricDelta"] svg { display: none; }
-    [data-testid="stMetricDelta"] > div { font-family: 'Space Mono', monospace !important; font-size: 0.8rem !important; }
+    [data-testid="stMetricDelta"] > div { font-family: 'Space Mono', monospace !important; font-size: 0.75rem !important; }
     [data-testid="metric-container"] {
         background: linear-gradient(135deg, #0a1f1d 0%, #081a18 100%);
-        border: 1px solid #1a4a44; border-radius: 12px; padding: 1.2rem 1.4rem !important;
-        box-shadow: 0 4px 24px rgba(0,250,154,0.05); transition: box-shadow 0.2s ease, border-color 0.2s ease;
+        border: 1px solid #1a4a44; border-radius: 12px;
+        padding: 0.9rem 0.8rem !important;
+        box-shadow: 0 4px 24px rgba(0,250,154,0.05);
     }
-    [data-testid="metric-container"]:hover { border-color: #20b2aa; box-shadow: 0 4px 32px rgba(0,250,154,0.12); }
+
+    /* ── Bottoni — più grandi su mobile ── */
     .stButton > button {
         background: linear-gradient(135deg, #0d3d38 0%, #0a2e2a 100%) !important;
-        color: #00fa9a !important; border: 1px solid #1e6b62 !important; border-radius: 8px !important;
-        font-family: 'Space Grotesk', sans-serif !important; font-weight: 600 !important;
-        font-size: 0.85rem !important; letter-spacing: 0.02em !important; padding: 0.5rem 1.2rem !important;
-        transition: all 0.18s ease !important; box-shadow: 0 2px 12px rgba(0,250,154,0.08) !important;
+        color: #00fa9a !important; border: 1px solid #1e6b62 !important;
+        border-radius: 10px !important; font-family: 'Space Grotesk', sans-serif !important;
+        font-weight: 600 !important; font-size: 0.9rem !important;
+        letter-spacing: 0.02em !important;
+        padding: 0.7rem 1.2rem !important;
+        min-height: 48px !important;
+        width: 100% !important;
+        transition: all 0.18s ease !important;
+        box-shadow: 0 2px 12px rgba(0,250,154,0.08) !important;
     }
     .stButton > button:hover {
         background: linear-gradient(135deg, #00fa9a 0%, #00c87a 100%) !important;
         color: #000e0c !important; border-color: #00fa9a !important;
-        box-shadow: 0 4px 20px rgba(0,250,154,0.3) !important; transform: translateY(-1px) !important;
+        box-shadow: 0 4px 20px rgba(0,250,154,0.3) !important;
     }
-    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #00fa9a 0%, #00c87a 100%) !important; color: #000e0c !important; border-color: #00fa9a !important; font-weight: 700 !important; }
-    .stButton > button[kind="primary"]:hover { background: linear-gradient(135deg, #00ffaa 0%, #00e088 100%) !important; box-shadow: 0 6px 28px rgba(0,250,154,0.45) !important; }
-    .stTextInput > div > div > input, .stNumberInput > div > div > input {
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #00fa9a 0%, #00c87a 100%) !important;
+        color: #000e0c !important; border-color: #00fa9a !important; font-weight: 700 !important;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #00ffaa 0%, #00e088 100%) !important;
+        box-shadow: 0 6px 28px rgba(0,250,154,0.45) !important;
+    }
+
+    /* ── Input — touch-friendly ── */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input {
         background-color: #0a1f1d !important; color: #c8eae4 !important;
-        border: 1px solid #1a4a44 !important; border-radius: 8px !important;
+        border: 1px solid #1a4a44 !important; border-radius: 10px !important;
         font-family: 'Space Grotesk', sans-serif !important;
+        font-size: 1rem !important;
+        min-height: 48px !important;
+        padding: 0.6rem 1rem !important;
         transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
     }
-    .stTextInput > div > div > input:focus, .stNumberInput > div > div > input:focus { border-color: #20b2aa !important; box-shadow: 0 0 0 3px rgba(32,178,170,0.15) !important; }
-    .stTextInput > label, .stNumberInput > label { font-size: 0.78rem !important; letter-spacing: 0.06em !important; text-transform: uppercase !important; color: #4a9990 !important; -webkit-text-fill-color: #4a9990 !important; }
-    .stSelectbox > div > div { background-color: #0a1f1d !important; border: 1px solid #1a4a44 !important; border-radius: 8px !important; color: #c8eae4 !important; }
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent !important; border-bottom: 1px solid #1a4a44 !important; gap: 0.2rem; }
-    .stTabs [data-baseweb="tab"] { background-color: transparent !important; color: #4a9990 !important; border-radius: 8px 8px 0 0 !important; font-weight: 500 !important; font-size: 0.9rem !important; letter-spacing: 0.01em !important; padding: 0.6rem 1.4rem !important; border-bottom: 2px solid transparent !important; transition: all 0.2s ease !important; }
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: #20b2aa !important; box-shadow: 0 0 0 3px rgba(32,178,170,0.15) !important;
+    }
+    .stTextInput > label, .stNumberInput > label {
+        font-size: 0.78rem !important; letter-spacing: 0.06em !important;
+        text-transform: uppercase !important; color: #4a9990 !important; -webkit-text-fill-color: #4a9990 !important;
+    }
+
+    /* ── Selectbox ── */
+    .stSelectbox > div > div {
+        background-color: #0a1f1d !important; border: 1px solid #1a4a44 !important;
+        border-radius: 10px !important; color: #c8eae4 !important;
+        min-height: 48px !important;
+    }
+
+    /* ── Tab — adattivi su mobile ── */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: transparent !important; border-bottom: 1px solid #1a4a44 !important;
+        gap: 0 !important; flex-wrap: nowrap !important; overflow-x: auto !important;
+        scrollbar-width: none !important;
+    }
+    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar { display: none !important; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: transparent !important; color: #4a9990 !important;
+        border-radius: 8px 8px 0 0 !important; font-weight: 500 !important;
+        font-size: clamp(0.72rem, 2.5vw, 0.9rem) !important;
+        padding: 0.6rem 0.8rem !important;
+        border-bottom: 2px solid transparent !important;
+        white-space: nowrap !important;
+        transition: all 0.2s ease !important;
+    }
     .stTabs [data-baseweb="tab"]:hover { color: #20b2aa !important; background-color: rgba(32,178,170,0.07) !important; }
     .stTabs [aria-selected="true"] { color: #00fa9a !important; border-bottom: 2px solid #00fa9a !important; background-color: rgba(0,250,154,0.05) !important; }
-    [data-testid="stDataFrame"], .stDataEditor { background-color: #081816 !important; border: 1px solid #1a4a44 !important; border-radius: 10px !important; overflow: hidden !important; }
-    [data-testid="stSidebar"] { background: linear-gradient(180deg, #040d0c 0%, #060f0e 100%) !important; border-right: 1px solid #0f2e2a !important; }
+
+    /* ── Tabelle ── */
+    [data-testid="stDataFrame"], .stDataEditor {
+        background-color: #081816 !important; border: 1px solid #1a4a44 !important;
+        border-radius: 10px !important; overflow: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* ── Sidebar ── */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #040d0c 0%, #060f0e 100%) !important;
+        border-right: 1px solid #0f2e2a !important;
+    }
     [data-testid="stSidebar"] .stButton > button { width: 100%; }
-    .streamlit-expanderHeader { background-color: #0a1f1d !important; border: 1px solid #1a4a44 !important; border-radius: 8px !important; color: #7ecdc6 !important; font-weight: 600 !important; }
-    .streamlit-expanderContent { background-color: #081816 !important; border: 1px solid #1a4a44 !important; border-top: none !important; border-radius: 0 0 8px 8px !important; }
-    .stRadio > div { gap: 0.8rem !important; }
-    .stRadio label { background-color: #0a1f1d !important; border: 1px solid #1a4a44 !important; border-radius: 8px !important; padding: 0.4rem 1rem !important; transition: all 0.2s ease !important; cursor: pointer !important; }
+
+    /* ── Expander ── */
+    .streamlit-expanderHeader {
+        background-color: #0a1f1d !important; border: 1px solid #1a4a44 !important;
+        border-radius: 8px !important; color: #7ecdc6 !important; font-weight: 600 !important;
+        min-height: 48px !important;
+    }
+    .streamlit-expanderContent {
+        background-color: #081816 !important; border: 1px solid #1a4a44 !important;
+        border-top: none !important; border-radius: 0 0 8px 8px !important;
+    }
+
+    /* ── Radio — pill orizzontali ── */
+    .stRadio > div { gap: 0.5rem !important; flex-wrap: wrap !important; }
+    .stRadio label {
+        background-color: #0a1f1d !important; border: 1px solid #1a4a44 !important;
+        border-radius: 20px !important; padding: 0.45rem 1rem !important;
+        transition: all 0.2s ease !important; cursor: pointer !important;
+        font-size: 0.85rem !important;
+    }
     .stRadio label:hover { border-color: #20b2aa !important; }
-    .stInfo, [data-testid="stInfo"] { background-color: rgba(32,178,170,0.08) !important; border: 1px solid #1a4a44 !important; border-left: 3px solid #20b2aa !important; border-radius: 8px !important; color: #7ecdc6 !important; }
-    .stWarning, [data-testid="stWarning"] { background-color: rgba(255,180,50,0.07) !important; border-left: 3px solid #f0a830 !important; border-radius: 8px !important; }
-    hr { border: none !important; border-top: 1px solid #0f2e2a !important; margin: 1.5rem 0 !important; }
-    .stCheckbox label { color: #7ecdc6 !important; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+
+    /* ── Messaggi ── */
+    .stInfo, [data-testid="stInfo"] {
+        background-color: rgba(32,178,170,0.08) !important; border: 1px solid #1a4a44 !important;
+        border-left: 3px solid #20b2aa !important; border-radius: 8px !important; color: #7ecdc6 !important;
+        font-size: 0.85rem !important;
+    }
+    .stWarning, [data-testid="stWarning"] {
+        background-color: rgba(255,180,50,0.07) !important;
+        border-left: 3px solid #f0a830 !important; border-radius: 8px !important;
+    }
+
+    /* ── Divisori e checkbox ── */
+    hr { border: none !important; border-top: 1px solid #0f2e2a !important; margin: 1.2rem 0 !important; }
+    .stCheckbox label { color: #7ecdc6 !important; min-height: 44px !important; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: #050a0a; }
     ::-webkit-scrollbar-thumb { background: #1a4a44; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #20b2aa; }
-    .percorso-badge { display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #0a1f1d 0%, #081a18 100%); border: 1px solid #1a4a44; border-radius: 10px; padding: 0.5rem 1.2rem; font-size: 0.95rem; color: #7ecdc6; margin-bottom: 1.2rem; }
+
+    /* ── Badge percorso ── */
+    .percorso-badge {
+        display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        background: linear-gradient(135deg, #0a1f1d 0%, #081a18 100%);
+        border: 1px solid #1a4a44; border-radius: 10px;
+        padding: 0.6rem 1rem; font-size: clamp(0.8rem, 3vw, 0.95rem);
+        color: #7ecdc6; margin-bottom: 1rem;
+    }
     .percorso-badge strong { color: #00fa9a; }
-    .percorso-badge .cfu-tag { background-color: rgba(0,250,154,0.1); border: 1px solid rgba(0,250,154,0.25); border-radius: 6px; padding: 0.1rem 0.5rem; font-family: 'Space Mono', monospace; font-size: 0.78rem; color: #00fa9a; }
-    .login-box { max-width: 420px; margin: 4rem auto; background: linear-gradient(135deg, #0a1f1d 0%, #081a18 100%); border: 1px solid #1a4a44; border-radius: 16px; padding: 2.5rem 2rem; box-shadow: 0 8px 40px rgba(0,250,154,0.07); }
+    .percorso-badge .cfu-tag {
+        background-color: rgba(0,250,154,0.1); border: 1px solid rgba(0,250,154,0.25);
+        border-radius: 6px; padding: 0.1rem 0.5rem;
+        font-family: 'Space Mono', monospace; font-size: 0.75rem; color: #00fa9a;
+    }
+
+    /* ── Colonne su mobile: impila verticalmente ── */
+    @media (max-width: 640px) {
+        /* Nasconde il deploy button di Streamlit */
+        [data-testid="stToolbar"] { display: none !important; }
+        /* Header più compatto */
+        h1 { font-size: 1.6rem !important; margin-bottom: 0.3rem !important; }
+        /* Metriche più compatte */
+        [data-testid="metric-container"] { padding: 0.7rem 0.6rem !important; }
+        [data-testid="stMetricValue"] { font-size: 1.2rem !important; }
+        /* Tabelle scrollabili orizzontalmente */
+        [data-testid="stDataFrame"], .stDataEditor { font-size: 0.8rem !important; }
+        /* Tab testo più piccolo */
+        .stTabs [data-baseweb="tab"] { font-size: 0.7rem !important; padding: 0.5rem 0.5rem !important; }
+        /* Bottoni sempre a piena larghezza */
+        .stButton > button { font-size: 0.9rem !important; min-height: 52px !important; }
+        /* Input più grandi per tocco */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input { min-height: 52px !important; font-size: 1rem !important; }
+    }
+
+    /* ── Login box centrato ── */
+    .login-box {
+        max-width: 420px; margin: 2rem auto;
+        background: linear-gradient(135deg, #0a1f1d 0%, #081a18 100%);
+        border: 1px solid #1a4a44; border-radius: 16px; padding: 2rem 1.5rem;
+        box-shadow: 0 8px 40px rgba(0,250,154,0.07);
+    }
     </style>
 """, unsafe_allow_html=True)
 
