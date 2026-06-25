@@ -3,6 +3,11 @@ import pandas as pd
 import altair as alt
 import json
 import hashlib
+import random
+import string
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -128,16 +133,20 @@ def carica_utenti() -> pd.DataFrame:
     ws, _ = get_worksheets()
     data = ws.get_all_records()
     if data:
-        return pd.DataFrame(data)
-    return pd.DataFrame(columns=["username", "password_hash"])
+        df = pd.DataFrame(data)
+        for col in ["username", "password_hash", "email"]:
+            if col not in df.columns:
+                df[col] = ""
+        return df
+    return pd.DataFrame(columns=["username", "password_hash", "email"])
 
-def registra_utente(username: str, password: str) -> bool:
+def registra_utente(username: str, password: str, email: str) -> bool:
     """Ritorna True se registrato, False se username già esistente."""
     ws, _ = get_worksheets()
     utenti = carica_utenti()
     if username in utenti["username"].values:
         return False
-    ws.append_row([username, hash_password(password)])
+    ws.append_row([username, hash_password(password), email.strip().lower()])
     return True
 
 def verifica_login(username: str, password: str) -> bool:
@@ -146,6 +155,57 @@ def verifica_login(username: str, password: str) -> bool:
     if riga.empty:
         return False
     return riga.iloc[0]["password_hash"] == hash_password(password)
+
+def get_email_utente(username: str) -> str:
+    utenti = carica_utenti()
+    riga = utenti[utenti["username"] == username]
+    if riga.empty:
+        return ""
+    return str(riga.iloc[0].get("email", ""))
+
+def aggiorna_password(username: str, nuova_password: str):
+    ws, _ = get_worksheets()
+    utenti = carica_utenti()
+    idx = utenti.index[utenti["username"] == username].tolist()
+    if not idx:
+        return
+    # Riga nel foglio = indice DataFrame + 2 (header + base 1)
+    riga_sheet = idx[0] + 2
+    col_hash = utenti.columns.tolist().index("password_hash") + 1
+    ws.update_cell(riga_sheet, col_hash, hash_password(nuova_password))
+
+# ── Codici di recupero ──
+def genera_codice(lunghezza=6) -> str:
+    return "".join(random.choices(string.digits, k=lunghezza))
+
+def invia_email_recupero(destinatario: str, codice: str) -> bool:
+    try:
+        mittente = st.secrets["email"]["mittente"]
+        password_email = st.secrets["email"]["password"].replace(" ", "")
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "🎓 Recupero password — Hub Carriera Universitaria"
+        msg["From"]    = mittente
+        msg["To"]      = destinatario
+        corpo_html = f"""
+        <html><body style="font-family:Arial,sans-serif;background:#050a0a;color:#c8eae4;padding:2rem;">
+          <div style="max-width:420px;margin:0 auto;background:#0a1f1d;border:1px solid #1a4a44;border-radius:16px;padding:2rem;">
+            <h2 style="color:#00fa9a;margin-top:0;">🎓 Hub Carriera Universitaria</h2>
+            <p style="color:#7ecdc6;">Hai richiesto il recupero della password.</p>
+            <p style="color:#c8eae4;">Il tuo codice di verifica è:</p>
+            <div style="background:#050a0a;border:2px solid #00fa9a;border-radius:10px;padding:1.2rem;text-align:center;margin:1.5rem 0;">
+              <span style="font-family:monospace;font-size:2.5rem;font-weight:700;letter-spacing:0.4em;color:#00fa9a;">{codice}</span>
+            </div>
+            <p style="color:#4a9990;font-size:0.85rem;">Il codice è valido per questa sessione. Se non hai richiesto il recupero, ignora questa email.</p>
+          </div>
+        </body></html>
+        """
+        msg.attach(MIMEText(corpo_html, "html"))
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(mittente, password_email)
+            server.sendmail(mittente, destinatario, msg.as_string())
+        return True
+    except Exception:
+        return False
 
 # ── Esami ──
 def carica_esami(username: str) -> pd.DataFrame:
@@ -192,7 +252,7 @@ if not st.session_state.logged_in:
         unsafe_allow_html=True
     )
 
-    tab_login, tab_reg = st.tabs(["🔑 Accedi", "✨ Registrati"])
+    tab_login, tab_reg, tab_recupero = st.tabs(["🔑 Accedi", "✨ Registrati", "🔓 Password dimenticata"])
 
     with tab_login:
         st.markdown("<div style='max-width:400px;'>", unsafe_allow_html=True)
@@ -208,7 +268,6 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.username = u
                     st.session_state.df_esami = carica_esami(u)
-                    # Ricostruisce i percorsi dai dati
                     percorsi_raw = {}
                     if not st.session_state.df_esami.empty and "Percorso" in st.session_state.df_esami.columns:
                         for p_name in st.session_state.df_esami["Percorso"].unique():
@@ -222,23 +281,97 @@ if not st.session_state.logged_in:
 
     with tab_reg:
         st.markdown("<div style='max-width:400px;'>", unsafe_allow_html=True)
-        nu = st.text_input("Scegli uno username", key="reg_u")
+        nu  = st.text_input("Scegli uno username", key="reg_u")
+        ne  = st.text_input("La tua email (serve per recuperare la password)", key="reg_e")
         np_ = st.text_input("Scegli una password", type="password", key="reg_p")
         np2 = st.text_input("Ripeti la password", type="password", key="reg_p2")
         if st.button("Crea account", type="primary", key="btn_reg"):
-            if not nu or not np_:
+            if not nu or not np_ or not ne:
                 st.error("Compila tutti i campi.")
+            elif "@" not in ne:
+                st.error("Inserisci un indirizzo email valido.")
             elif np_ != np2:
                 st.error("Le password non coincidono.")
             elif len(np_) < 6:
                 st.error("La password deve avere almeno 6 caratteri.")
             else:
                 with st.spinner("Registrazione in corso..."):
-                    ok = registra_utente(nu, np_)
+                    ok = registra_utente(nu, np_, ne)
                 if ok:
-                    st.success(f"Account creato! Ora accedi con le tue credenziali.")
+                    st.success("Account creato! Ora accedi con le tue credenziali.")
                 else:
                     st.error("Username già esistente, scegline un altro.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with tab_recupero:
+        st.markdown("<div style='max-width:400px;'>", unsafe_allow_html=True)
+        st.markdown(
+            "<p style='color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;font-size:0.88rem;'>"
+            "Inserisci il tuo username — ti mandiamo un codice via email per reimpostare la password.</p>",
+            unsafe_allow_html=True
+        )
+
+        # Fase 1 — inserimento username e invio codice
+        if "recupero_fase" not in st.session_state:
+            st.session_state.recupero_fase = 1
+            st.session_state.recupero_codice = ""
+            st.session_state.recupero_username = ""
+
+        if st.session_state.recupero_fase == 1:
+            ru = st.text_input("Il tuo username", key="rec_u")
+            if st.button("Invia codice via email", type="primary", key="btn_rec1"):
+                if not ru:
+                    st.error("Inserisci il tuo username.")
+                else:
+                    with st.spinner("Recupero email in corso..."):
+                        email_utente = get_email_utente(ru)
+                    if not email_utente:
+                        st.error("Username non trovato.")
+                    else:
+                        codice = genera_codice()
+                        with st.spinner("Invio email in corso..."):
+                            inviato = invia_email_recupero(email_utente, codice)
+                        if inviato:
+                            st.session_state.recupero_codice    = codice
+                            st.session_state.recupero_username  = ru
+                            st.session_state.recupero_fase      = 2
+                            # Mostra solo le prime 3 e ultime 2 lettere dell'email
+                            email_mascherata = email_utente[:3] + "***" + email_utente[email_utente.index("@"):]
+                            st.session_state.recupero_email_mask = email_mascherata
+                            st.rerun()
+                        else:
+                            st.error("Errore nell'invio dell'email. Controlla i Secrets di Streamlit.")
+
+        # Fase 2 — inserimento codice e nuova password
+        elif st.session_state.recupero_fase == 2:
+            st.success(f"Codice inviato a {st.session_state.recupero_email_mask} — controlla la tua casella!")
+            codice_inserito = st.text_input("Codice di verifica (6 cifre)", key="rec_cod", max_chars=6)
+            nuova_p  = st.text_input("Nuova password", type="password", key="rec_np")
+            nuova_p2 = st.text_input("Ripeti nuova password", type="password", key="rec_np2")
+
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
+                if st.button("Conferma", type="primary", key="btn_rec2"):
+                    if codice_inserito != st.session_state.recupero_codice:
+                        st.error("Codice errato, riprova.")
+                    elif len(nuova_p) < 6:
+                        st.error("La password deve avere almeno 6 caratteri.")
+                    elif nuova_p != nuova_p2:
+                        st.error("Le password non coincidono.")
+                    else:
+                        with st.spinner("Aggiornamento in corso..."):
+                            aggiorna_password(st.session_state.recupero_username, nuova_p)
+                        st.session_state.recupero_fase = 1
+                        st.session_state.recupero_codice = ""
+                        st.session_state.recupero_username = ""
+                        st.success("Password aggiornata! Ora puoi accedere.")
+            with col_r2:
+                if st.button("Ricomincia", key="btn_rec_reset"):
+                    st.session_state.recupero_fase = 1
+                    st.session_state.recupero_codice = ""
+                    st.session_state.recupero_username = ""
+                    st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
