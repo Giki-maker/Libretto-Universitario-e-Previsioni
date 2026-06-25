@@ -574,11 +574,8 @@ st.markdown(
 # Blocco iniziale se non ci sono percorsi
 if not st.session_state.percorsi_salvati:
     st.warning("⚠️ Non hai ancora registrato nessun corso di laurea. Creane uno per iniziare!")
-    col_i1, col_i2 = st.columns(2)
-    with col_i1:
-        n_perc = st.text_input("Nome del corso di laurea (es. Ingegneria Meccanica):")
-    with col_i2:
-        c_perc = st.number_input("CFU totali necessari per la laurea:", min_value=1, value=180)
+    n_perc = st.text_input("Nome del corso di laurea (es. Ingegneria Meccanica):")
+    c_perc = st.number_input("CFU totali necessari per la laurea:", min_value=1, value=180)
     if st.button("🚀 Crea il tuo primo Percorso", type="primary"):
         if n_perc.strip():
             st.session_state.percorsi_salvati[n_perc] = c_perc
@@ -679,18 +676,17 @@ tab_libretto, tab_statistiche, tab_simulatore = st.tabs([
 with tab_libretto:
     st.subheader("Registra nuovo esame")
     tipo_esame = st.radio("Tipo di valutazione:", ["Esame con voto", "Idoneità (Pass/Fail)"], horizontal=True)
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        nome_esame = st.text_input("Nome dell'insegnamento", placeholder="Es. Analisi Matematica I")
-    with col2:
-        if tipo_esame == "Esame con voto":
+    nome_esame = st.text_input("Nome dell'insegnamento", placeholder="Es. Analisi Matematica I")
+    if tipo_esame == "Esame con voto":
+        col_v, col_c = st.columns(2)
+        with col_v:
             voto = st.number_input("Voto", min_value=18, max_value=30, value=25, step=1)
-            lode = st.checkbox("Lode ✨", disabled=(voto < 30))
-            if voto < 30: lode = False
-        else:
-            voto = 0; lode = False
-            st.write("Solo CFU")
-    with col3:
+        with col_c:
+            cfu = st.number_input("CFU", min_value=1, max_value=30, value=6, step=1)
+        lode = st.checkbox("Lode ✨", disabled=(voto < 30))
+        if voto < 30: lode = False
+    else:
+        voto = 0; lode = False
         cfu = st.number_input("CFU", min_value=1, max_value=30, value=6, step=1)
 
     if st.button("💾 Registra nel Libretto", type="primary"):
@@ -714,15 +710,18 @@ with tab_libretto:
     st.subheader("Gestione esami registrati")
 
     if not df_corso.empty:
-        n_esami_totali  = len(df_corso)
+        n_esami_totali   = len(df_corso)
         n_esami_con_voto = len(df_corso[df_corso["Tipo"] == "Esame con voto"])
-        col_hd1, col_hd2, col_hd3 = st.columns([2, 1, 1])
+
+        # Contatori in riga
+        col_hd1, col_hd2 = st.columns(2)
         with col_hd1:
-            st.info("💡 **Modifica:** doppio clic sulla cella. **Elimina:** spunta l'ultima colonna, poi clicca Aggiorna.")
+            st.markdown(f"<div style='background:linear-gradient(135deg,#0a1f1d,#081a18);border:1px solid #1a4a44;border-radius:10px;padding:0.7rem 1rem;text-align:center;'><div style='font-family:Space Mono,monospace;font-size:1.6rem;font-weight:700;color:#00fa9a !important;-webkit-text-fill-color:#00fa9a !important;line-height:1;'>{n_esami_totali}</div><div style='font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;margin-top:0.2rem;'>Esami totali</div></div>", unsafe_allow_html=True)
         with col_hd2:
-            st.markdown(f"<div style='background:linear-gradient(135deg,#0a1f1d,#081a18);border:1px solid #1a4a44;border-radius:10px;padding:0.7rem 1rem;text-align:center;'><div style='font-family:Space Mono,monospace;font-size:1.6rem;font-weight:700;color:#00fa9a !important;-webkit-text-fill-color:#00fa9a !important;line-height:1;'>{n_esami_totali}</div><div style='font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;margin-top:0.2rem;'>Esami registrati</div></div>", unsafe_allow_html=True)
-        with col_hd3:
             st.markdown(f"<div style='background:linear-gradient(135deg,#0a1f1d,#081a18);border:1px solid #1a4a44;border-radius:10px;padding:0.7rem 1rem;text-align:center;'><div style='font-family:Space Mono,monospace;font-size:1.6rem;font-weight:700;color:#20b2aa !important;-webkit-text-fill-color:#20b2aa !important;line-height:1;'>{n_esami_con_voto}</div><div style='font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;margin-top:0.2rem;'>Con voto</div></div>", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.info("💡 **Modifica:** doppio clic sulla cella. **Elimina:** spunta l'ultima colonna, poi clicca Aggiorna.")
 
         df_edit_view = df_corso[["Esame", "Voto", "CFU", "Lode", "Tipo"]].copy().reset_index(drop=True)
         df_edit_view.insert(0, "#", range(1, len(df_edit_view) + 1))
@@ -766,88 +765,90 @@ with tab_statistiche:
         voto_partenza_laurea = 0.0
 
     if not df_corso.empty:
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        # Metriche: 2 per riga per stare su mobile
+        col_m1, col_m2 = st.columns(2)
         col_m1.metric("CFU Conseguiti", f"{cfu_acquisiti_totali} / {cfu_totali_corso}")
         col_m2.metric("CFU Mancanti", cfu_mancanti)
+        col_m3, col_m4 = st.columns(2)
         col_m3.metric("Media Ponderata", f"{media_ponderata_attuale:.2f}")
         col_m4.metric("Voto d'Entrata", f"{voto_partenza_laurea:.2f} / 110")
         st.divider()
 
-        col_pie, col_line = st.columns([1, 2])
-        with col_pie:
-            st.subheader("Progresso CFU")
-            percentuale = (cfu_acquisiti_totali / cfu_totali_corso) * 100 if cfu_totali_corso > 0 else 0
-            st.markdown(f"<p style='font-family:Space Mono,monospace;font-size:2rem;font-weight:700;color:#00fa9a !important;-webkit-text-fill-color:#00fa9a !important;margin:0;'>{percentuale:.1f}%</p><p style='font-size:0.78rem;color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;text-transform:uppercase;letter-spacing:0.08em;margin-top:0;'>completato</p>", unsafe_allow_html=True)
-            df_pie = pd.DataFrame({"Stato": ["Conseguiti", "Da Conseguire"], "CFU": [cfu_acquisiti_totali, cfu_mancanti]})
-            pie_chart = alt.Chart(df_pie).mark_arc(innerRadius=55, outerRadius=100).encode(
-                theta=alt.Theta(field="CFU", type="quantitative"),
-                color=alt.Color(field="Stato", type="nominal",
-                    scale=alt.Scale(domain=["Conseguiti", "Da Conseguire"], range=["#00fa9a", "#0f3530"]),
-                    legend=alt.Legend(labelColor="#7ecdc6", titleColor="#4a9990", orient="bottom")),
-                tooltip=["Stato", "CFU"]
-            ).properties(height=280, background="transparent")
-            st.altair_chart(pie_chart, use_container_width=True)
+        # Grafico a torta — verticale, a piena larghezza
+        st.subheader("Progresso CFU")
+        percentuale = (cfu_acquisiti_totali / cfu_totali_corso) * 100 if cfu_totali_corso > 0 else 0
+        st.markdown(f"<p style='font-family:Space Mono,monospace;font-size:2rem;font-weight:700;color:#00fa9a !important;-webkit-text-fill-color:#00fa9a !important;margin:0;'>{percentuale:.1f}%</p><p style='font-size:0.78rem;color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;text-transform:uppercase;letter-spacing:0.08em;margin-top:0;'>completato</p>", unsafe_allow_html=True)
+        df_pie = pd.DataFrame({"Stato": ["Conseguiti", "Da Conseguire"], "CFU": [cfu_acquisiti_totali, cfu_mancanti]})
+        pie_chart = alt.Chart(df_pie).mark_arc(innerRadius=55, outerRadius=100).encode(
+            theta=alt.Theta(field="CFU", type="quantitative"),
+            color=alt.Color(field="Stato", type="nominal",
+                scale=alt.Scale(domain=["Conseguiti", "Da Conseguire"], range=["#00fa9a", "#0f3530"]),
+                legend=alt.Legend(labelColor="#7ecdc6", titleColor="#4a9990", orient="bottom")),
+            tooltip=["Stato", "CFU"]
+        ).properties(height=240, background="transparent")
+        st.altair_chart(pie_chart, use_container_width=True)
 
-        with col_line:
-            if not df_voti_validi.empty:
-                st.subheader("Andamento media nel tempo")
-                df_voti_validi = df_voti_validi.reset_index(drop=True)
-                df_voti_validi["CFU_Cumulati"]    = df_voti_validi["CFU"].cumsum()
-                df_voti_validi["Punti_Cumulati"]  = (df_voti_validi["Voto"] * df_voti_validi["CFU"]).cumsum()
-                df_voti_validi["Media Evolutiva"] = df_voti_validi["Punti_Cumulati"] / df_voti_validi["CFU_Cumulati"]
-                df_voti_validi["Ordine"] = df_voti_validi.index + 1
-                df_voti_validi["Label"] = df_voti_validi["Esame"].str[:22]
-                media_finale = float(media_ponderata_attuale)
-                df_rule = pd.DataFrame({"media": [media_finale]})
+        # Grafico andamento — verticale, a piena larghezza
+        if not df_voti_validi.empty:
+            st.divider()
+            st.subheader("Andamento media nel tempo")
+            df_voti_validi = df_voti_validi.reset_index(drop=True)
+            df_voti_validi["CFU_Cumulati"]    = df_voti_validi["CFU"].cumsum()
+            df_voti_validi["Punti_Cumulati"]  = (df_voti_validi["Voto"] * df_voti_validi["CFU"]).cumsum()
+            df_voti_validi["Media Evolutiva"] = df_voti_validi["Punti_Cumulati"] / df_voti_validi["CFU_Cumulati"]
+            df_voti_validi["Ordine"] = df_voti_validi.index + 1
+            df_voti_validi["Label"] = df_voti_validi["Esame"].str[:22]
+            media_finale = float(media_ponderata_attuale)
+            df_rule = pd.DataFrame({"media": [media_finale]})
 
-                base = alt.Chart(df_voti_validi).encode(
-                    x=alt.X("Ordine:Q", title="Esame n°",
-                        scale=alt.Scale(domain=[0.5, len(df_voti_validi) + 0.5], nice=False),
-                        axis=alt.Axis(labelColor="#4a9990", titleColor="#4a9990", gridColor="#0e2825",
-                            domainColor="#1a4a44", tickColor="#1a4a44", tickCount=len(df_voti_validi),
-                            format="d", labelFontSize=11, titleFontSize=11, titlePadding=10))
-                )
-                y_scale = alt.Scale(domain=[18, 30], clamp=True)
-                y_axis  = alt.Axis(labelColor="#4a9990", titleColor="#4a9990", gridColor="#0e2825",
-                    domainColor="#1a4a44", tickColor="#1a4a44",
-                    values=list(range(18, 31)), labelFontSize=11, titleFontSize=11, titlePadding=10)
+            base = alt.Chart(df_voti_validi).encode(
+                x=alt.X("Ordine:Q", title="Esame n°",
+                    scale=alt.Scale(domain=[0.5, len(df_voti_validi) + 0.5], nice=False),
+                    axis=alt.Axis(labelColor="#4a9990", titleColor="#4a9990", gridColor="#0e2825",
+                        domainColor="#1a4a44", tickColor="#1a4a44", tickCount=len(df_voti_validi),
+                        format="d", labelFontSize=11, titleFontSize=11, titlePadding=10))
+            )
+            y_scale = alt.Scale(domain=[18, 30], clamp=True)
+            y_axis  = alt.Axis(labelColor="#4a9990", titleColor="#4a9990", gridColor="#0e2825",
+                domainColor="#1a4a44", tickColor="#1a4a44",
+                values=list(range(18, 31)), labelFontSize=11, titleFontSize=11, titlePadding=10)
 
-                area = base.mark_area(
-                    line={"color": "#20b2aa", "strokeWidth": 2.5},
-                    color=alt.Gradient(gradient="linear",
-                        stops=[alt.GradientStop(color="rgba(32,178,170,0.25)", offset=0),
-                               alt.GradientStop(color="rgba(32,178,170,0.0)",  offset=1)],
-                        x1=1, x2=1, y1=1, y2=0),
-                    interpolate="monotone"
-                ).encode(y=alt.Y("Voto:Q", scale=y_scale, title="Voto", axis=y_axis))
+            area = base.mark_area(
+                line={"color": "#20b2aa", "strokeWidth": 2.5},
+                color=alt.Gradient(gradient="linear",
+                    stops=[alt.GradientStop(color="rgba(32,178,170,0.25)", offset=0),
+                           alt.GradientStop(color="rgba(32,178,170,0.0)",  offset=1)],
+                    x1=1, x2=1, y1=1, y2=0),
+                interpolate="monotone"
+            ).encode(y=alt.Y("Voto:Q", scale=y_scale, title="Voto", axis=y_axis))
 
-                punti = base.mark_circle(size=80, color="#20b2aa", opacity=1).encode(
-                    y=alt.Y("Voto:Q", scale=y_scale),
-                    tooltip=[alt.Tooltip("Label:N", title="Esame"), alt.Tooltip("Voto:Q", title="Voto"),
-                             alt.Tooltip("CFU:Q", title="CFU"), alt.Tooltip("Media Evolutiva:Q", title="Media prog.", format=".2f")]
-                )
-                linea_media = base.mark_line(color="#00fa9a", strokeDash=[5, 4], strokeWidth=1.8, interpolate="monotone").encode(
-                    y=alt.Y("Media Evolutiva:Q", scale=y_scale),
-                    tooltip=[alt.Tooltip("Label:N", title="Esame"), alt.Tooltip("Media Evolutiva:Q", title="Media progressiva", format=".2f")]
-                )
-                rule_media = alt.Chart(df_rule).mark_rule(color="rgba(0,250,154,0.35)", strokeDash=[2, 4], strokeWidth=1.2).encode(
-                    y=alt.Y("media:Q", scale=y_scale)
-                )
+            punti = base.mark_circle(size=80, color="#20b2aa", opacity=1).encode(
+                y=alt.Y("Voto:Q", scale=y_scale),
+                tooltip=[alt.Tooltip("Label:N", title="Esame"), alt.Tooltip("Voto:Q", title="Voto"),
+                         alt.Tooltip("CFU:Q", title="CFU"), alt.Tooltip("Media Evolutiva:Q", title="Media prog.", format=".2f")]
+            )
+            linea_media = base.mark_line(color="#00fa9a", strokeDash=[5, 4], strokeWidth=1.8, interpolate="monotone").encode(
+                y=alt.Y("Media Evolutiva:Q", scale=y_scale),
+                tooltip=[alt.Tooltip("Label:N", title="Esame"), alt.Tooltip("Media Evolutiva:Q", title="Media progressiva", format=".2f")]
+            )
+            rule_media = alt.Chart(df_rule).mark_rule(color="rgba(0,250,154,0.35)", strokeDash=[2, 4], strokeWidth=1.2).encode(
+                y=alt.Y("media:Q", scale=y_scale)
+            )
 
-                chart_final = (rule_media + area + linea_media + punti).properties(
-                    height=300, background="transparent"
-                ).configure_axis(gridColor="#0e2825", domainColor="#1a4a44",
-                    labelFont="Space Grotesk, sans-serif", titleFont="Space Grotesk, sans-serif"
-                ).configure_view(strokeWidth=0).configure_legend(disable=True)
+            chart_final = (rule_media + area + linea_media + punti).properties(
+                height=280, background="transparent"
+            ).configure_axis(gridColor="#0e2825", domainColor="#1a4a44",
+                labelFont="Space Grotesk, sans-serif", titleFont="Space Grotesk, sans-serif"
+            ).configure_view(strokeWidth=0).configure_legend(disable=True)
 
-                st.altair_chart(chart_final, use_container_width=True)
-                st.markdown(
-                    "<div style='display:flex;gap:2rem;font-size:0.78rem;margin-top:-0.5rem;padding-left:0.2rem;'>"
-                    "<span style='display:flex;align-items:center;gap:0.4rem;'><span style='display:inline-block;width:20px;height:3px;background:#20b2aa;border-radius:2px;'></span><span style='color:#7ecdc6 !important;-webkit-text-fill-color:#7ecdc6 !important;'>Voti</span></span>"
-                    "<span style='display:flex;align-items:center;gap:0.4rem;'><span style='display:inline-block;width:20px;height:2px;background:#00fa9a;border-radius:2px;'></span><span style='color:#7ecdc6 !important;-webkit-text-fill-color:#7ecdc6 !important;'>Media progressiva</span></span>"
-                    "<span style='display:flex;align-items:center;gap:0.4rem;'><span style='display:inline-block;width:20px;height:1px;background:rgba(0,250,154,0.4);'></span><span style='color:#7ecdc6 !important;-webkit-text-fill-color:#7ecdc6 !important;'>Media attuale</span></span>"
-                    "</div>", unsafe_allow_html=True
-                )
+            st.altair_chart(chart_final, use_container_width=True)
+            st.markdown(
+                "<div style='display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.78rem;margin-top:-0.5rem;'>"
+                "<span style='display:flex;align-items:center;gap:0.4rem;'><span style='display:inline-block;width:16px;height:3px;background:#20b2aa;border-radius:2px;'></span><span style='color:#7ecdc6 !important;-webkit-text-fill-color:#7ecdc6 !important;'>Voti</span></span>"
+                "<span style='display:flex;align-items:center;gap:0.4rem;'><span style='display:inline-block;width:16px;height:2px;background:#00fa9a;border-radius:2px;'></span><span style='color:#7ecdc6 !important;-webkit-text-fill-color:#7ecdc6 !important;'>Media progressiva</span></span>"
+                "<span style='display:flex;align-items:center;gap:0.4rem;'><span style='display:inline-block;width:16px;height:1px;background:rgba(0,250,154,0.4);'></span><span style='color:#7ecdc6 !important;-webkit-text-fill-color:#7ecdc6 !important;'>Media attuale</span></span>"
+                "</div>", unsafe_allow_html=True
+            )
     else:
         st.markdown("<div style='text-align:center;padding:3rem;color:#2a6b64 !important;-webkit-text-fill-color:#2a6b64 !important;'>📊 Registra i tuoi esami per sbloccare le statistiche.</div>", unsafe_allow_html=True)
 
@@ -856,10 +857,12 @@ with tab_simulatore:
     st.subheader("Aggiungi esame ipotetico")
     st.markdown("<p style='color:#4a9990 !important;-webkit-text-fill-color:#4a9990 !important;font-size:0.88rem;margin-top:-0.5rem;'>Sperimenta scenari futuri. Le modifiche esistono solo qui, il libretto reale non viene toccato.</p>", unsafe_allow_html=True)
 
-    col_s1, col_s2, col_s3 = st.columns([2, 1, 1])
-    with col_s1: nome_sim = st.text_input("Nome esame ipotetico", key="nome_sim")
-    with col_s2: voto_sim = st.number_input("Voto ipotetico", min_value=18, max_value=30, value=25, step=1, key="voto_sim")
-    with col_s3: cfu_sim_input = st.number_input("CFU", min_value=1, max_value=30, value=6, step=1, key="cfu_sim_input")
+    nome_sim = st.text_input("Nome esame ipotetico", key="nome_sim")
+    col_sv, col_sc = st.columns(2)
+    with col_sv:
+        voto_sim = st.number_input("Voto ipotetico", min_value=18, max_value=30, value=25, step=1, key="voto_sim")
+    with col_sc:
+        cfu_sim_input = st.number_input("CFU", min_value=1, max_value=30, value=6, step=1, key="cfu_sim_input")
 
     if st.button("✨ Aggiungi alla Simulazione", type="primary"):
         if nome_sim.strip() == "":
@@ -888,18 +891,15 @@ with tab_simulatore:
             }, key="editor_simulato"
         )
 
-        col_upd, col_rst = st.columns([1, 1])
-        with col_upd:
-            if st.button("Applica modifiche simulate"):
-                df_sim_salvato = df_sim_editato[df_sim_editato["🗑️"] == False].drop(columns=["🗑️", "#"])
-                st.session_state.df_simulato = df_sim_salvato.copy()
-                imposta_notifica("Simulatore aggiornato!", "🔄")
-                st.rerun()
-        with col_rst:
-            if st.button("🔄 Resetta simulazione"):
-                st.session_state.df_simulato = df_corso.copy()
-                imposta_notifica("Simulatore resettato ai dati reali.", "🧹")
-                st.rerun()
+        if st.button("Applica modifiche simulate"):
+            df_sim_salvato = df_sim_editato[df_sim_editato["🗑️"] == False].drop(columns=["🗑️", "#"])
+            st.session_state.df_simulato = df_sim_salvato.copy()
+            imposta_notifica("Simulatore aggiornato!", "🔄")
+            st.rerun()
+        if st.button("🔄 Resetta simulazione"):
+            st.session_state.df_simulato = df_corso.copy()
+            imposta_notifica("Simulatore resettato ai dati reali.", "🧹")
+            st.rerun()
 
     df_sim_validi = st.session_state.df_simulato[st.session_state.df_simulato["Tipo"] == "Esame con voto"].copy()
     if not df_sim_validi.empty:
@@ -912,11 +912,13 @@ with tab_simulatore:
 
         st.divider()
         st.subheader("Risultato simulazione")
-        m1, m2, m3 = st.columns(3)
+        m1, m2 = st.columns(2)
         m1.metric("CFU Simulati", int(cfu_sim_tot))
         if not df_voti_validi.empty and media_ponderata_attuale > 0:
             m2.metric("Nuova Media", f"{media_sim:.2f}", f"{media_sim - media_ponderata_attuale:+.2f}")
-            m3.metric("Nuovo Voto d'Entrata", f"{voto_laurea_sim:.2f}", f"{voto_laurea_sim - voto_partenza_laurea:+.2f}")
         else:
             m2.metric("Nuova Media", f"{media_sim:.2f}")
-            m3.metric("Nuovo Voto d'Entrata", f"{voto_laurea_sim:.2f}")
+        if not df_voti_validi.empty and media_ponderata_attuale > 0:
+            st.metric("Nuovo Voto d'Entrata", f"{voto_laurea_sim:.2f} / 110", f"{voto_laurea_sim - voto_partenza_laurea:+.2f}")
+        else:
+            st.metric("Nuovo Voto d'Entrata", f"{voto_laurea_sim:.2f} / 110")
