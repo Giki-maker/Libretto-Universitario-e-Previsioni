@@ -121,16 +121,17 @@ def get_gsheet_client():
 def get_worksheets():
     client = get_gsheet_client()
     sheet = client.open(SHEET_NAME)
-    ws_utenti = sheet.worksheet("utenti")
-    ws_esami  = sheet.worksheet("esami")
-    return ws_utenti, ws_esami
+    ws_utenti   = sheet.worksheet("utenti")
+    ws_esami    = sheet.worksheet("esami")
+    ws_percorsi = sheet.worksheet("percorsi")
+    return ws_utenti, ws_esami, ws_percorsi
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 # ── Utenti ──
 def carica_utenti() -> pd.DataFrame:
-    ws, _ = get_worksheets()
+    ws, _, _2 = get_worksheets()
     data = ws.get_all_records()
     if data:
         df = pd.DataFrame(data)
@@ -141,8 +142,7 @@ def carica_utenti() -> pd.DataFrame:
     return pd.DataFrame(columns=["username", "password_hash", "email"])
 
 def registra_utente(username: str, password: str, email: str) -> bool:
-    """Ritorna True se registrato, False se username già esistente."""
-    ws, _ = get_worksheets()
+    ws, _, _2 = get_worksheets()
     utenti = carica_utenti()
     if username in utenti["username"].values:
         return False
@@ -164,12 +164,11 @@ def get_email_utente(username: str) -> str:
     return str(riga.iloc[0].get("email", ""))
 
 def aggiorna_password(username: str, nuova_password: str):
-    ws, _ = get_worksheets()
+    ws, _, _2 = get_worksheets()
     utenti = carica_utenti()
     idx = utenti.index[utenti["username"] == username].tolist()
     if not idx:
         return
-    # Riga nel foglio = indice DataFrame + 2 (header + base 1)
     riga_sheet = idx[0] + 2
     col_hash = utenti.columns.tolist().index("password_hash") + 1
     ws.update_cell(riga_sheet, col_hash, hash_password(nuova_password))
@@ -209,7 +208,7 @@ def invia_email_recupero(destinatario: str, codice: str) -> bool:
 
 # ── Esami ──
 def carica_esami(username: str) -> pd.DataFrame:
-    _, ws = get_worksheets()
+    _, ws, _2 = get_worksheets()
     data = ws.get_all_records()
     if data:
         df = pd.DataFrame(data)
@@ -218,18 +217,34 @@ def carica_esami(username: str) -> pd.DataFrame:
     return pd.DataFrame(columns=["Percorso", "Esame", "Tipo", "Voto", "Lode", "CFU"])
 
 def salva_esami(username: str, df: pd.DataFrame):
-    """Riscrive tutte le righe dell'utente nel foglio esami."""
-    _, ws = get_worksheets()
-    # Legge tutte le righe
+    _, ws, _2 = get_worksheets()
     tutti = ws.get_all_records()
     df_tutti = pd.DataFrame(tutti) if tutti else pd.DataFrame(columns=["username","Percorso","Esame","Tipo","Voto","Lode","CFU"])
-    # Rimuove le righe dell'utente corrente
     df_altri = df_tutti[df_tutti["username"] != username]
-    # Aggiunge le nuove righe dell'utente
     df_utente = df.copy()
     df_utente.insert(0, "username", username)
     df_finale = pd.concat([df_altri, df_utente], ignore_index=True)
-    # Riscrive il foglio
+    ws.clear()
+    ws.update([df_finale.columns.tolist()] + df_finale.values.tolist())
+
+# ── Percorsi ──
+def carica_percorsi_da_sheet(username: str) -> dict:
+    _, _2, ws = get_worksheets()
+    data = ws.get_all_records()
+    if not data:
+        return {}
+    df = pd.DataFrame(data)
+    df = df[df["username"] == username]
+    return dict(zip(df["percorso"], df["cfu"].astype(int)))
+
+def salva_percorsi_su_sheet(username: str, percorsi: dict):
+    _, _2, ws = get_worksheets()
+    tutti = ws.get_all_records()
+    df_tutti = pd.DataFrame(tutti) if tutti else pd.DataFrame(columns=["username","percorso","cfu"])
+    df_altri = df_tutti[df_tutti["username"] != username]
+    righe_utente = [{"username": username, "percorso": k, "cfu": v} for k, v in percorsi.items()]
+    df_utente = pd.DataFrame(righe_utente) if righe_utente else pd.DataFrame(columns=["username","percorso","cfu"])
+    df_finale = pd.concat([df_altri, df_utente], ignore_index=True)
     ws.clear()
     ws.update([df_finale.columns.tolist()] + df_finale.values.tolist())
 
@@ -268,11 +283,7 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.username = u
                     st.session_state.df_esami = carica_esami(u)
-                    percorsi_raw = {}
-                    if not st.session_state.df_esami.empty and "Percorso" in st.session_state.df_esami.columns:
-                        for p_name in st.session_state.df_esami["Percorso"].unique():
-                            percorsi_raw[p_name] = st.session_state.get("percorsi_cfu", {}).get(p_name, 180)
-                    st.session_state.percorsi_salvati = percorsi_raw
+                    st.session_state.percorsi_salvati = carica_percorsi_da_sheet(u)
                     imposta_notifica(f"Benvenuto, {u}!", "👋")
                     st.rerun()
                 else:
@@ -386,13 +397,13 @@ if "df_esami" not in st.session_state:
     st.session_state.df_esami = carica_esami(USERNAME)
 
 if "percorsi_salvati" not in st.session_state:
-    st.session_state.percorsi_salvati = {}
-
-if "percorsi_cfu" not in st.session_state:
-    st.session_state.percorsi_cfu = {}
+    st.session_state.percorsi_salvati = carica_percorsi_da_sheet(USERNAME)
 
 def salva_dati(df):
     salva_esami(USERNAME, df)
+
+def salva_percorsi(percorsi):
+    salva_percorsi_su_sheet(USERNAME, percorsi)
 
 def imposta_notifica(messaggio, icona):
     st.session_state.toast_msg = messaggio
@@ -417,7 +428,7 @@ if not st.session_state.percorsi_salvati:
     if st.button("🚀 Crea il tuo primo Percorso", type="primary"):
         if n_perc.strip():
             st.session_state.percorsi_salvati[n_perc] = c_perc
-            st.session_state.percorsi_cfu[n_perc] = c_perc
+            salva_percorsi(st.session_state.percorsi_salvati)
             st.session_state.percorso_attivo = n_perc
             imposta_notifica(f"Benvenuto! Percorso '{n_perc}' creato.", "🎉")
             st.rerun()
@@ -457,7 +468,7 @@ with st.sidebar.expander("✏️ Modifica / Elimina Percorso"):
                     salva_dati(st.session_state.df_esami)
                     del st.session_state.percorsi_salvati[st.session_state.percorso_attivo]
                 st.session_state.percorsi_salvati[nuovo_nome_perc] = nuovi_cfu_perc
-                st.session_state.percorsi_cfu[nuovo_nome_perc] = nuovi_cfu_perc
+                salva_percorsi(st.session_state.percorsi_salvati)
                 st.session_state.percorso_attivo = nuovo_nome_perc
                 imposta_notifica("Percorso aggiornato!", "🔄")
                 st.rerun()
@@ -466,6 +477,7 @@ with st.sidebar.expander("✏️ Modifica / Elimina Percorso"):
             del st.session_state.percorsi_salvati[st.session_state.percorso_attivo]
             st.session_state.df_esami = st.session_state.df_esami[st.session_state.df_esami["Percorso"] != st.session_state.percorso_attivo]
             salva_dati(st.session_state.df_esami)
+            salva_percorsi(st.session_state.percorsi_salvati)
             imposta_notifica("Percorso eliminato.", "🗑️")
             st.rerun()
 
@@ -475,7 +487,7 @@ with st.sidebar.expander("➕ Aggiungi nuovo percorso"):
     if st.button("Crea Percorso"):
         if nuovo_p and nuovo_p not in st.session_state.percorsi_salvati:
             st.session_state.percorsi_salvati[nuovo_p] = nuovo_c
-            st.session_state.percorsi_cfu[nuovo_p] = nuovo_c
+            salva_percorsi(st.session_state.percorsi_salvati)
             st.session_state.percorso_attivo = nuovo_p
             imposta_notifica(f"Percorso '{nuovo_p}' creato!", "🎉")
             st.rerun()
